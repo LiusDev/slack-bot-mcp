@@ -7,6 +7,7 @@ export const TOOL_SCOPES: Record<string, string[]> = {
   user_info: ["users:read"],
   channels_list: ["channels:read", "groups:read", "im:read", "mpim:read"],
   send_message: ["chat:write", "im:write"],
+  delete_message: ["chat:write"],
   conversations_history: ["channels:history", "groups:history", "im:history", "mpim:history"],
   conversations_replies: ["channels:history", "groups:history", "im:history", "mpim:history"],
   reactions_add: ["reactions:write"],

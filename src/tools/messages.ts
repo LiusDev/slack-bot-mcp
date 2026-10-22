@@ -116,6 +116,32 @@ export function registerMessageTools(server: McpServer, rt: SlackRuntime): void 
   );
 
   server.registerTool(
+    "delete_message",
+    {
+      title: "Delete a Slack message",
+      description:
+        "Delete a message the bot posted, identified by channel and ts (as returned by send_message). Slack only lets a bot delete its own messages. Deleting the parent of a thread leaves its replies in place. This cannot be undone, so confirm with the user unless they asked for it.",
+      inputSchema: z.object({
+        channel: z.string().min(1).describe("Channel ID, #channel-name, or user (ID, @handle, email) for a DM"),
+        ts: z.string().min(1).describe("Timestamp of the bot's message to delete"),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
+    },
+    ({ channel, ts }) =>
+      run(`delete the message ${ts} in ${channel}`, async () => {
+        const id = await rt.ready;
+        const conv = await rt.directory.resolveConversation(channel);
+        await assertAllowed(rt, conv, channel);
+        await rt.adapter.deleteMessage(`slack:${conv.channelId}:`, ts);
+        // A deleted question can no longer be answered.
+        const team = id.teamId ?? "default";
+        const stale = (await rt.pending.list(team)).questions.filter((q) => q.channel_id === conv.channelId && q.ts === ts);
+        await rt.pending.remove(team, stale.map((q) => q.id));
+        return { ok: true, channel_id: conv.channelId, ts, pending_question_removed: stale.length > 0 || undefined };
+      }),
+  );
+
+  server.registerTool(
     "conversations_history",
     {
       title: "Read Slack channel history",

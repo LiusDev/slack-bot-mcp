@@ -46,6 +46,9 @@ const SLACK_ERRORS: Record<string, string> = {
   no_text: "The message is empty. Provide some text.",
   thread_not_found: "Thread not found. Check `thread_ts`; it must be the timestamp of an existing message in this channel.",
   message_not_found: "Message not found. Check the channel and message timestamp.",
+  cant_delete_message:
+    "The bot can only delete messages it posted itself. This message belongs to someone else; ask its author or a workspace admin to delete it.",
+  compliance_exports_prevent_deletion: "The workspace's compliance export settings prevent deleting messages.",
   already_reacted: "The bot already added this reaction to the message.",
   no_reaction: "The bot has not added this reaction to the message, so there is nothing to remove.",
   invalid_name: "Unknown emoji name. Use a Slack emoji name without colons, for example `thumbsup` or `white_check_mark`.",

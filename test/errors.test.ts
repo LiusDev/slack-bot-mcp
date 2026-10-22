@@ -45,3 +45,13 @@ describe("toToolError", () => {
     expect(describeError(platformError("some_new_error"), "do something")).toContain("`some_new_error`");
   });
 });
+
+describe("delete errors", () => {
+  it("explains that bots can only delete their own messages", () => {
+    const err = Object.assign(new Error("cant_delete_message"), {
+      code: "slack_webapi_platform_error",
+      data: { error: "cant_delete_message" },
+    });
+    expect(describeError(err, "delete the message")).toContain("only delete messages it posted itself");
+  });
+});

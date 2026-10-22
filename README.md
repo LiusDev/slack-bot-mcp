@@ -110,6 +110,7 @@ You can drop scopes you do not need. Tools that lack a scope return an error tha
 | `user_info` | Profile of one user (ID, email or @handle) | `users:read` |
 | `channels_list` | List channels, filtered by type, name or membership | `channels:read`, `groups:read`, `im:read`, `mpim:read` |
 | `send_message` | Post to a channel, a thread, or a user's DM (Markdown or plain text). `expect_reply: true` saves the message as a pending question | `chat:write`, `im:write` |
+| `delete_message` | Delete a message the bot posted (bots cannot delete other people's messages) | `chat:write` |
 | `conversations_history` | Read recent messages in a channel or DM | `channels:history`, `groups:history`, `im:history`, `mpim:history` |
 | `conversations_replies` | Read a thread | same as above |
 | `reactions_add`, `reactions_remove` | Add or remove an emoji reaction | `reactions:write` |
