@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import type { SlackRuntime } from "../slack/bot";
 import { TOOL_SCOPES } from "../slack/scopes";
+import { VERSION } from "../version";
 import { run } from "./util";
 
 export function registerWhoamiTool(server: McpServer, rt: SlackRuntime): void {
@@ -9,7 +10,7 @@ export function registerWhoamiTool(server: McpServer, rt: SlackRuntime): void {
     {
       title: "Slack bot status",
       description:
-        "Show which Slack bot and workspace this server is connected to, the connection mode, the OAuth scopes the bot has, and which tools are missing scopes. Call this first when a Slack action fails with a permission error.",
+        "Show the server version, which Slack bot and workspace this server is connected to, the connection mode, the OAuth scopes the bot has, and which tools are missing scopes. Call this first when a Slack action fails with a permission error.",
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     () =>
@@ -28,6 +29,7 @@ export function registerWhoamiTool(server: McpServer, rt: SlackRuntime): void {
           team: id.team,
           team_id: id.teamId,
           workspace_url: id.url,
+          server_version: VERSION,
           mode: rt.config.mode,
           event_connection: rt.eventStatus(),
           scopes: id.scopes,

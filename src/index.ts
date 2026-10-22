@@ -6,10 +6,35 @@ import { createStderrLogger } from "./logger";
 import { createSlackRuntime } from "./slack/bot";
 import { startEventTransport } from "./slack/transport";
 import { registerAllTools } from "./tools";
+import { VERSION } from "./version";
 
-declare const __PKG_VERSION__: string;
+const HELP = `slack-bot-mcp ${VERSION}
+MCP server that lets AI agents work in Slack through a bot. Speaks MCP over stdio.
+
+Usage:
+  slack-bot-mcp              Start the server (normally launched by an MCP client)
+  slack-bot-mcp --version    Print the version
+  slack-bot-mcp --help       Print this help
+
+Required environment:
+  SLACK_BOT_TOKEN            Bot token (xoxb-...)
+  SLACK_APP_TOKEN            App-level token (xapp-...), needed in socket mode
+
+Docs: https://github.com/LiusDev/slack-bot-mcp#readme
+`;
 
 function main(): void {
+  // stdout belongs to MCP once the server starts, so CLI flags write to it directly and exit.
+  const args = process.argv.slice(2);
+  if (args.includes("--version") || args.includes("-v")) {
+    process.stdout.write(`${VERSION}\n`);
+    return;
+  }
+  if (args.includes("--help") || args.includes("-h")) {
+    process.stdout.write(HELP);
+    return;
+  }
+
   let config;
   try {
     config = loadConfig();
@@ -30,7 +55,7 @@ function main(): void {
 
   const stdio = serveStdio(() => {
     const server = new McpServer(
-      { name: "slack-bot-mcp", version: typeof __PKG_VERSION__ === "string" ? __PKG_VERSION__ : "dev" },
+      { name: "slack-bot-mcp", version: VERSION },
       { capabilities: { tools: {} } },
     );
     registerAllTools(server, runtime);

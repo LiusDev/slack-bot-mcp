@@ -12,6 +12,8 @@ SLACK_BOT_TOKEN=xoxb-... SLACK_APP_TOKEN=xapp-... npx -y @liusdev/slack-bot-mcp
 SLACK_BOT_TOKEN=xoxb-... SLACK_APP_TOKEN=xapp-... pnpm dlx @liusdev/slack-bot-mcp
 ```
 
+Check the installed version with `npx -y @liusdev/slack-bot-mcp -v` (or `--version`); `--help` lists usage. The `whoami` tool also reports `server_version`.
+
 ### Claude Code
 
 ```bash
