@@ -5,6 +5,7 @@ import type { Config } from "../config";
 import { ToolError } from "../errors";
 import { SlackDirectory } from "./directory";
 import { Inbox } from "./inbox";
+import { PendingStore } from "./pending";
 import { type BotIdentity, fetchBotIdentity } from "./scopes";
 
 export interface SlackRuntime {
@@ -13,6 +14,7 @@ export interface SlackRuntime {
   adapter: SlackAdapter;
   directory: SlackDirectory;
   inbox: Inbox;
+  pending: PendingStore;
   logger: Logger;
   /**
    * Resolves with the bot identity once SLACK_BOT_TOKEN is verified. Every
@@ -54,6 +56,7 @@ export function createSlackRuntime(config: Config, logger: Logger): SlackRuntime
 
   const directory = new SlackDirectory(() => adapter.webClient);
   const inbox = new Inbox();
+  const pending = new PendingStore(config.stateDir, config.pendingTtlDays);
 
   const record = async (thread: Thread, message: Message, isMention: boolean) => {
     if (message.author.isMe) return;
@@ -98,5 +101,5 @@ export function createSlackRuntime(config: Config, logger: Logger): SlackRuntime
   );
   events.catch(() => {});
 
-  return { config, bot, adapter, directory, inbox, logger, ready, events, eventStatus: () => eventStatus };
+  return { config, bot, adapter, directory, inbox, pending, logger, ready, events, eventStatus: () => eventStatus };
 }

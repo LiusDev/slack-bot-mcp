@@ -12,6 +12,7 @@ export const TOOL_SCOPES: Record<string, string[]> = {
   reactions_add: ["reactions:write"],
   reactions_remove: ["reactions:write"],
   wait_for_reply: ["channels:history", "groups:history", "im:history"],
+  check_replies: ["channels:history", "groups:history", "im:history"],
 };
 
 export interface BotIdentity {

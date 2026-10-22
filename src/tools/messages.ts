@@ -63,12 +63,18 @@ export function registerMessageTools(server: McpServer, rt: SlackRuntime): void 
           .default("markdown")
           .describe("markdown: standard Markdown rendered by Slack. plain: sent as-is"),
         thread_ts: z.string().optional().describe("Timestamp of the parent message, to reply inside that thread"),
+        expect_reply: z
+          .boolean()
+          .default(false)
+          .describe(
+            "Set true when the message asks something you need an answer to. The question is saved as pending, so check_replies can find the answer later, even from a new session.",
+          ),
       }),
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     },
-    ({ target, text, format, thread_ts }) =>
+    ({ target, text, format, thread_ts, expect_reply }) =>
       run(`send a Slack message to ${target}`, async () => {
-        await rt.ready;
+        const id = await rt.ready;
         const conv = await rt.directory.resolveConversation(target);
         await assertAllowed(rt, conv, target);
 
@@ -81,6 +87,17 @@ export function registerMessageTools(server: McpServer, rt: SlackRuntime): void 
           .getPermalink({ channel: conv.channelId, message_ts: sent.id })
           .then((r) => r.permalink)
           .catch(() => undefined);
+        const pending = expect_reply
+          ? await rt.pending.add(id.teamId ?? "default", {
+              channel_id: conv.channelId,
+              ts: sent.id,
+              thread_ts,
+              recipient_user_id: conv.user?.id,
+              recipient_name: conv.user ? conv.user.real_name || conv.user.display_name : undefined,
+              target,
+              summary: text.length > 200 ? `${text.slice(0, 200)}…` : text,
+            })
+          : undefined;
         return {
           ok: true,
           channel_id: conv.channelId,
@@ -90,6 +107,10 @@ export function registerMessageTools(server: McpServer, rt: SlackRuntime): void 
             ? { user_id: conv.user.id, name: conv.user.real_name || conv.user.display_name, dm: true }
             : { channel: conv.channelName ? `#${conv.channelName}` : conv.channelId },
           permalink,
+          pending_question_id: pending?.id,
+          next_step: pending
+            ? "Saved as a pending question. For a quick answer, call wait_for_reply once. Otherwise end your turn; later, call check_replies (no arguments) to collect the answer."
+            : undefined,
         };
       }),
   );

@@ -1,3 +1,5 @@
+import { homedir } from "node:os";
+import { join } from "node:path";
 import * as z from "zod";
 
 const ConfigSchema = z
@@ -12,6 +14,8 @@ const ConfigSchema = z
     SLACK_MCP_HTTP_PATH: z.string().startsWith("/").default("/slack/events"),
     SLACK_MCP_ALLOWED_CHANNELS: z.string().optional(),
     SLACK_MCP_LOG_LEVEL: z.enum(["debug", "info", "warn", "error", "silent"]).default("info"),
+    SLACK_MCP_STATE_DIR: z.string().optional(),
+    SLACK_MCP_PENDING_TTL_DAYS: z.coerce.number().positive().default(7),
   })
   .superRefine((env, ctx) => {
     if (env.SLACK_MODE === "socket" && !env.SLACK_APP_TOKEN) {
@@ -40,6 +44,10 @@ export interface Config {
   /** Channel IDs, user IDs or #names the bot may post to. Undefined means no restriction. */
   allowedTargets?: string[];
   logLevel: "debug" | "info" | "warn" | "error" | "silent";
+  /** Directory for state that must outlive the process, such as pending questions. */
+  stateDir: string;
+  /** Pending questions older than this are dropped. */
+  pendingTtlDays: number;
 }
 
 export class ConfigError extends Error {}
@@ -63,5 +71,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     httpPath: e.SLACK_MCP_HTTP_PATH,
     allowedTargets: allowed && allowed.length > 0 ? allowed : undefined,
     logLevel: e.SLACK_MCP_LOG_LEVEL,
+    stateDir: e.SLACK_MCP_STATE_DIR || join(homedir(), ".slack-bot-mcp"),
+    pendingTtlDays: e.SLACK_MCP_PENDING_TTL_DAYS,
   };
 }

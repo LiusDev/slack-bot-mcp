@@ -107,11 +107,12 @@ You can drop scopes you do not need. Tools that lack a scope return an error tha
 | `users_search` | Find members by email, name, display name or @handle | `users:read`, `users:read.email` |
 | `user_info` | Profile of one user (ID, email or @handle) | `users:read` |
 | `channels_list` | List channels, filtered by type, name or membership | `channels:read`, `groups:read`, `im:read`, `mpim:read` |
-| `send_message` | Post to a channel, a thread, or a user's DM (Markdown or plain text) | `chat:write`, `im:write` |
+| `send_message` | Post to a channel, a thread, or a user's DM (Markdown or plain text). `expect_reply: true` saves the message as a pending question | `chat:write`, `im:write` |
 | `conversations_history` | Read recent messages in a channel or DM | `channels:history`, `groups:history`, `im:history`, `mpim:history` |
 | `conversations_replies` | Read a thread | same as above |
 | `reactions_add`, `reactions_remove` | Add or remove an emoji reaction | `reactions:write` |
-| `wait_for_reply` | Poll a channel, DM or thread until someone replies, or time out | history scopes |
+| `wait_for_reply` | Wait briefly (default 45 s) for a reply; saves the question as pending on timeout | history scopes |
+| `check_replies` | Check all pending questions, or one conversation, once and return any answers | history scopes |
 | `get_inbox` | DMs and @mentions the bot received while the server was running | `app_mention` and `message.im` events |
 
 Wherever a tool takes a channel or user, you can pass:
@@ -147,16 +148,36 @@ The server also explains common Slack errors: `not_in_channel`, `channel_not_fou
 | `SLACK_MCP_HTTP_PATH` | no | `/slack/events` | Path for incoming Slack events in webhook mode |
 | `SLACK_MCP_ALLOWED_CHANNELS` | no | any | Comma-separated targets `send_message` may post to: channel IDs, `#names`, user IDs or emails |
 | `SLACK_MCP_LOG_LEVEL` | no | `info` | `debug`, `info`, `warn`, `error` or `silent`. Logs go to stderr |
+| `SLACK_MCP_STATE_DIR` | no | `~/.slack-bot-mcp` | Where pending questions are stored, one JSON file per workspace |
+| `SLACK_MCP_PENDING_TTL_DAYS` | no | `7` | Pending questions older than this are dropped |
 
 ### Webhook mode
 
 Set `SLACK_MODE=webhook` and `SLACK_SIGNING_SECRET`. The server then listens on `SLACK_MCP_HTTP_PORT`. In the app settings, turn off Socket Mode and set the Request URL under **Event Subscriptions** and **Interactivity** to `https://<your-host>/slack/events`.
 
+## Waiting for replies
+
+People may answer in a minute or the next morning. Polling inside one agent turn is cheap for the server but not for the agent: every `wait_for_reply` call is a model turn that re-reads the whole conversation. So the server keeps waits short and remembers what it is waiting for:
+
+1. The agent sends the question with `send_message` and `expect_reply: true`. The server saves it as a pending question in `SLACK_MCP_STATE_DIR`, which outlives the MCP process and the agent session.
+2. If a quick answer is likely, the agent calls `wait_for_reply` once or twice. After two timeouts the tool tells the agent to stop and report back to the user.
+3. Later, `check_replies` with no arguments checks every pending question in one call, returns the answers, and removes answered questions from the list.
+
+Something has to run the agent again for step 3; the server cannot wake an agent. Slack's official MCP server has no wait tool either, so agents using it re-read threads the same way. Options:
+
+- The user asks: "check Slack replies".
+- A loop in an open session, for example `/loop 30m check Slack replies and continue` in Claude Code.
+- A scheduled run, for example a cron job at 8:00 running `claude -p "check Slack replies and continue"`.
+
+Each check is one short turn, instead of one turn every minute.
+
+To let a single `wait_for_reply` call block longer, raise your client's tool timeout and pass a larger `timeout_seconds` (up to 300). In Claude Code, set `MCP_TOOL_TIMEOUT` in milliseconds, for example `MCP_TOOL_TIMEOUT=320000`.
+
 ## Running several instances
 
 Every tool except `get_inbox` calls the Slack Web API directly with the bot token. Those tools give the same results no matter how many agents run this server at once. Keep in mind:
 
-- **Events are split.** Slack delivers each event to only one of an app's open Socket Mode connections. Each instance's `get_inbox` therefore sees only part of the incoming messages. `wait_for_reply` polls the Web API, so it is not affected.
+- **Events are split.** Slack delivers each event to only one of an app's open Socket Mode connections. Each instance's `get_inbox` therefore sees only part of the incoming messages. `wait_for_reply` and `check_replies` read the Web API, so they are not affected.
 - **Connection limit.** Slack allows at most 10 Socket Mode connections per app. Instances beyond that cannot open a socket, so their `get_inbox` reports the connection error. Their other tools still work.
 - **Rate limits are shared.** All instances spend the same token's Slack rate limits. A tool that hits a limit fails at once and says how long to wait.
 
