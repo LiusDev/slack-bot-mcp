@@ -40,6 +40,13 @@ claude mcp add slack-bot \
 
 ## Create the Slack app
 
+A Slack [app manifest](https://docs.slack.dev/app-manifests/) is a YAML file that describes an app's configuration. The manifest below sets up everything this server needs in one step:
+
+- a bot user that people can DM (the App Home **Messages** tab)
+- the bot token scopes the tools use
+- the `app_mention` and `message.im` events, which feed `get_inbox`
+- Socket Mode, so no public URL is needed
+
 1. Go to [api.slack.com/apps](https://api.slack.com/apps), click **Create New App**, choose **From an app manifest**, pick your workspace, and paste the manifest below.
 2. Under **Basic Information → App-Level Tokens**, generate a token with the `connections:write` scope. This is `SLACK_APP_TOKEN` (`xapp-…`).
 3. Under **OAuth & Permissions**, install the app to the workspace and copy the **Bot User OAuth Token**. This is `SLACK_BOT_TOKEN` (`xoxb-…`).
@@ -85,6 +92,10 @@ settings:
   socket_mode_enabled: true
   token_rotation_enabled: false
 ```
+
+### Use an existing app
+
+To reuse an app you already created, open it at [api.slack.com/apps](https://api.slack.com/apps) and select **App Manifest** in the sidebar. Merge in the scopes, events, `socket_mode_enabled` and `app_home` settings above. Do not paste over the whole manifest: that replaces the app's current configuration and can drop scopes, events or Request URLs it already uses. Save, then click **Reinstall to Workspace** under **OAuth & Permissions** so new scopes take effect. If the app has no app-level token yet, create one as in step 2.
 
 You can drop scopes you do not need. Tools that lack a scope return an error that names the missing scope. `chat:write.public` lets the bot post in public channels without being invited first.
 
