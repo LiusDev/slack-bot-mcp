@@ -1,0 +1,53 @@
+{
+  "name": "@liusdev/slack-bot-mcp",
+  "version": "0.1.0",
+  "description": "MCP server that lets AI agents message, look up users, and read conversations in Slack through a bot.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LiusDev/slack-bot-mcp.git"
+  },
+  "homepage": "https://github.com/LiusDev/slack-bot-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/LiusDev/slack-bot-mcp/issues"
+  },
+  "type": "module",
+  "bin": {
+    "slack-bot-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "pnpm build"
+  },
+  "keywords": [
+    "mcp",
+    "slack",
+    "chat-sdk"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@chat-adapter/slack": "^4.43.0",
+    "@chat-adapter/state-memory": "^4.43.0",
+    "@modelcontextprotocol/server": "^2.3.1",
+    "chat": "^4.43.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@slack/web-api": "^7.19.0",
+    "@types/node": "^26.6.5",
+    "tsup": "^9.0.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

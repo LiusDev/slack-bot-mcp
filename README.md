@@ -1,0 +1,161 @@
+# slack-bot-mcp
+
+An MCP server that lets an AI agent work in Slack as a bot. The agent can send DMs and channel messages, find members by email or name, read history and threads, react to messages, and wait for replies.
+
+It is built on [Chat SDK](https://chat-sdk.dev) (`chat` + `@chat-adapter/slack`). By default it receives events over Socket Mode, so it needs no public URL. Set `SLACK_MODE=webhook` to receive events through a Request URL instead.
+
+## Quick start
+
+```bash
+SLACK_BOT_TOKEN=xoxb-... SLACK_APP_TOKEN=xapp-... npx -y @liusdev/slack-bot-mcp
+# or
+SLACK_BOT_TOKEN=xoxb-... SLACK_APP_TOKEN=xapp-... pnpm dlx @liusdev/slack-bot-mcp
+```
+
+### Claude Code
+
+```bash
+claude mcp add slack-bot \
+  -e SLACK_BOT_TOKEN=xoxb-... \
+  -e SLACK_APP_TOKEN=xapp-... \
+  -- npx -y @liusdev/slack-bot-mcp
+```
+
+### Claude Desktop, Cursor and other MCP clients
+
+```json
+{
+  "mcpServers": {
+    "slack-bot": {
+      "command": "npx",
+      "args": ["-y", "@liusdev/slack-bot-mcp"],
+      "env": {
+        "SLACK_BOT_TOKEN": "xoxb-...",
+        "SLACK_APP_TOKEN": "xapp-..."
+      }
+    }
+  }
+}
+```
+
+## Create the Slack app
+
+1. Go to [api.slack.com/apps](https://api.slack.com/apps), click **Create New App**, choose **From an app manifest**, pick your workspace, and paste the manifest below.
+2. Under **Basic Information → App-Level Tokens**, generate a token with the `connections:write` scope. This is `SLACK_APP_TOKEN` (`xapp-…`).
+3. Under **OAuth & Permissions**, install the app to the workspace and copy the **Bot User OAuth Token**. This is `SLACK_BOT_TOKEN` (`xoxb-…`).
+4. Invite the bot to any private channel it should read or post in: `/invite @AI Assistant`.
+
+```yaml
+display_information:
+  name: AI Assistant
+features:
+  app_home:
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+  bot_user:
+    display_name: AI Assistant
+    always_online: true
+oauth_config:
+  scopes:
+    bot:
+      - app_mentions:read
+      - channels:history
+      - channels:read
+      - chat:write
+      - chat:write.public
+      - groups:history
+      - groups:read
+      - im:history
+      - im:read
+      - im:write
+      - mpim:history
+      - mpim:read
+      - reactions:read
+      - reactions:write
+      - users:read
+      - users:read.email
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_mention
+      - message.im
+  interactivity:
+    is_enabled: true
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false
+```
+
+You can drop scopes you do not need. Tools that lack a scope return an error that names the missing scope. `chat:write.public` lets the bot post in public channels without being invited first.
+
+## Tools
+
+| Tool | What it does | Bot scopes |
+|---|---|---|
+| `whoami` | Bot identity, connection status, granted scopes, and the scopes each tool is missing | none |
+| `users_search` | Find members by email, name, display name or @handle | `users:read`, `users:read.email` |
+| `user_info` | Profile of one user (ID, email or @handle) | `users:read` |
+| `channels_list` | List channels, filtered by type, name or membership | `channels:read`, `groups:read`, `im:read`, `mpim:read` |
+| `send_message` | Post to a channel, a thread, or a user's DM (Markdown or plain text) | `chat:write`, `im:write` |
+| `conversations_history` | Read recent messages in a channel or DM | `channels:history`, `groups:history`, `im:history`, `mpim:history` |
+| `conversations_replies` | Read a thread | same as above |
+| `reactions_add`, `reactions_remove` | Add or remove an emoji reaction | `reactions:write` |
+| `wait_for_reply` | Poll a channel, DM or thread until someone replies, or time out | history scopes |
+| `get_inbox` | DMs and @mentions the bot received while the server was running | `app_mention` and `message.im` events |
+
+Wherever a tool takes a channel or user, you can pass:
+
+- a channel ID (`C…`), `#channel-name`, or Slack markup (`<#C…>`)
+- a user ID (`U…`), `@handle`, email, or display name
+
+For a user, the tool opens a DM with them. If a name matches several users, the tool returns the candidates so the agent can ask which one you mean.
+
+Bot tokens cannot call Slack's `search.messages` API, so this server has no message search.
+
+### Errors
+
+Every tool returns failures as an MCP tool error (`isError: true`). The text says what failed, why, and what to do. For example:
+
+```
+Permission denied: the Slack bot is missing the OAuth scope `reactions:write` needed to add the :eyes: reaction.
+Scopes the bot currently has: chat:write,users:read.
+A Slack workspace admin must add it under api.slack.com/apps → your app → OAuth & Permissions → Bot Token Scopes, then reinstall the app to the workspace.
+```
+
+The server also explains common Slack errors: `not_in_channel`, `channel_not_found`, `users_not_found`, `is_archived`, `invalid_auth`, and rate limits with the retry delay. Without `users:read.email`, Slack silently leaves emails out of user lists. In that case, email lookups report the missing scope instead of "user not found".
+
+## Configuration
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `SLACK_BOT_TOKEN` | yes | | Bot token, `xoxb-…` |
+| `SLACK_APP_TOKEN` | socket mode | | App-level token with `connections:write`, `xapp-…` |
+| `SLACK_MODE` | no | `socket` | `socket` or `webhook` |
+| `SLACK_SIGNING_SECRET` | webhook mode | | Signing secret from **Basic Information** |
+| `SLACK_MCP_HTTP_PORT` | no | `3000` | Port for incoming Slack events in webhook mode |
+| `SLACK_MCP_HTTP_PATH` | no | `/slack/events` | Path for incoming Slack events in webhook mode |
+| `SLACK_MCP_ALLOWED_CHANNELS` | no | any | Comma-separated targets `send_message` may post to: channel IDs, `#names`, user IDs or emails |
+| `SLACK_MCP_LOG_LEVEL` | no | `info` | `debug`, `info`, `warn`, `error` or `silent`. Logs go to stderr |
+
+### Webhook mode
+
+Set `SLACK_MODE=webhook` and `SLACK_SIGNING_SECRET`. The server then listens on `SLACK_MCP_HTTP_PORT`. In the app settings, turn off Socket Mode and set the Request URL under **Event Subscriptions** and **Interactivity** to `https://<your-host>/slack/events`.
+
+## Running several instances
+
+Every tool except `get_inbox` calls the Slack Web API directly with the bot token. Those tools give the same results no matter how many agents run this server at once. Keep in mind:
+
+- **Events are split.** Slack delivers each event to only one of an app's open Socket Mode connections. Each instance's `get_inbox` therefore sees only part of the incoming messages. `wait_for_reply` polls the Web API, so it is not affected.
+- **Connection limit.** Slack allows at most 10 Socket Mode connections per app. Instances beyond that cannot open a socket, so their `get_inbox` reports the connection error. Their other tools still work.
+- **Rate limits are shared.** All instances spend the same token's Slack rate limits. A tool that hits a limit fails at once and says how long to wait.
+
+## Development
+
+```bash
+pnpm install
+pnpm dev          # rebuild on change
+pnpm test
+pnpm typecheck
+pnpm build
+npx @modelcontextprotocol/inspector node dist/index.js   # try the tools interactively
+```
