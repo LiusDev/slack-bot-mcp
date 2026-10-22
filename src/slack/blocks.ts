@@ -53,9 +53,11 @@ export function buildBlocks(opts: {
   format: "markdown" | "plain";
   blocks?: Block[];
   context?: ContextItem[];
+  /** Always return blocks, even for plain text (chat.update keeps old blocks unless replaced). */
+  always?: boolean;
 }): Block[] | undefined {
   const hasContext = Boolean(opts.context && opts.context.length > 0);
-  if (!opts.blocks && !hasContext) return undefined;
+  if (!opts.blocks && !hasContext && !opts.always) return undefined;
   const result = opts.blocks ? [...opts.blocks] : textBlocks(opts.text, opts.format);
   if (hasContext) {
     result.push({ type: "divider" }, { type: "context", elements: [{ type: "mrkdwn", text: renderContextLine(opts.context!) }] });

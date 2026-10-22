@@ -51,6 +51,9 @@ const SLACK_ERRORS: Record<string, string> = {
   message_not_found: "Message not found. Check the channel and message timestamp.",
   cant_delete_message:
     "The bot can only delete messages it posted itself. This message belongs to someone else; ask its author or a workspace admin to delete it.",
+  cant_update_message:
+    "The bot can only edit messages it posted itself. This message belongs to someone else; send a new message instead.",
+  edit_window_closed: "The workspace's edit time limit for this message has passed. Send a correction as a new message instead.",
   compliance_exports_prevent_deletion: "The workspace's compliance export settings prevent deleting messages.",
   already_reacted: "The bot already added this reaction to the message.",
   no_reaction: "The bot has not added this reaction to the message, so there is nothing to remove.",

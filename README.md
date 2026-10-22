@@ -7,12 +7,12 @@ It is built on [Chat SDK](https://chat-sdk.dev) (`chat` + `@chat-adapter/slack`)
 ## Quick start
 
 ```bash
-SLACK_BOT_TOKEN=xoxb-... SLACK_APP_TOKEN=xapp-... npx -y @liusdev/slack-bot-mcp
+SLACK_BOT_TOKEN=xoxb-... SLACK_APP_TOKEN=xapp-... npx -y @liusdev/slack-bot-mcp@latest
 # or
-SLACK_BOT_TOKEN=xoxb-... SLACK_APP_TOKEN=xapp-... pnpm dlx @liusdev/slack-bot-mcp
+SLACK_BOT_TOKEN=xoxb-... SLACK_APP_TOKEN=xapp-... pnpm dlx @liusdev/slack-bot-mcp@latest
 ```
 
-Check the installed version with `npx -y @liusdev/slack-bot-mcp -v` (or `--version`); `--help` lists usage. The `whoami` tool also reports `server_version`.
+Check the installed version with `npx -y @liusdev/slack-bot-mcp@latest -v` (or `--version`); `--help` lists usage. The `whoami` tool also reports `server_version`.
 
 ### Claude Code
 
@@ -20,7 +20,7 @@ Check the installed version with `npx -y @liusdev/slack-bot-mcp -v` (or `--versi
 claude mcp add slack-bot \
   -e SLACK_BOT_TOKEN=xoxb-... \
   -e SLACK_APP_TOKEN=xapp-... \
-  -- npx -y @liusdev/slack-bot-mcp
+  -- npx -y @liusdev/slack-bot-mcp@latest
 ```
 
 ### Claude Desktop, Cursor and other MCP clients
@@ -30,7 +30,7 @@ claude mcp add slack-bot \
   "mcpServers": {
     "slack-bot": {
       "command": "npx",
-      "args": ["-y", "@liusdev/slack-bot-mcp"],
+      "args": ["-y", "@liusdev/slack-bot-mcp@latest"],
       "env": {
         "SLACK_BOT_TOKEN": "xoxb-...",
         "SLACK_APP_TOKEN": "xapp-..."
@@ -110,6 +110,7 @@ You can drop scopes you do not need. Tools that lack a scope return an error tha
 | `user_info` | Profile of one user (ID, email or @handle) | `users:read` |
 | `channels_list` | List channels, filtered by type, name or membership | `channels:read`, `groups:read`, `im:read`, `mpim:read` |
 | `send_message` | Post to a channel, a thread, or a user's DM: Markdown or plain text, an optional context line, or custom Block Kit. `expect_reply: true` saves the message as a pending question | `chat:write`, `im:write` |
+| `edit_message` | Replace the content of a message the bot posted (same formatting options as `send_message`) | `chat:write` |
 | `delete_message` | Delete a message the bot posted (bots cannot delete other people's messages) | `chat:write` |
 | `conversations_history` | Read recent messages in a channel or DM | `channels:history`, `groups:history`, `im:history`, `mpim:history` |
 | `conversations_replies` | Read a thread | same as above |

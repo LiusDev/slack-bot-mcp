@@ -49,6 +49,32 @@ export async function formatMessages(rt: SlackRuntime, messages: RawSlackMessage
   );
 }
 
+const ContextSchema = z
+  .array(
+    z.union([
+      z.string().describe("Pre-formatted Slack mrkdwn"),
+      z.object({
+        label: z.string().optional().describe("Shown in bold, e.g. \"Jira\""),
+        value: z.string().describe("e.g. \"VEC-123\""),
+        url: z.string().url().optional().describe("Makes the value a link"),
+      }),
+    ]),
+  )
+  .max(20)
+  .optional()
+  .describe(
+    "Small grey details shown under a divider at the bottom of the message, joined with ·. Example: [{label:\"Jira\", value:\"VEC-123\", url:\"https://…\"}, {label:\"Comment\", value:\"#4521\", url:\"https://…\"}]",
+  );
+
+const BlocksSchema = z
+  .array(z.record(z.string(), z.unknown()))
+  .min(1)
+  .max(50)
+  .optional()
+  .describe(
+    "Custom Slack Block Kit blocks (https://docs.slack.dev/reference/block-kit/blocks), e.g. header, section with fields, image, markdown, context, divider. Replaces the rendered `text`; `context` is still appended. Do not use interactive elements (buttons, menus): this server does not handle clicks.",
+  );
+
 export function registerMessageTools(server: McpServer, rt: SlackRuntime): void {
   server.registerTool(
     "send_message",
@@ -67,30 +93,8 @@ export function registerMessageTools(server: McpServer, rt: SlackRuntime): void 
           .default("markdown")
           .describe("markdown: standard Markdown rendered by Slack. plain: sent as-is"),
         thread_ts: z.string().optional().describe("Timestamp of the parent message, to reply inside that thread"),
-        context: z
-          .array(
-            z.union([
-              z.string().describe("Pre-formatted Slack mrkdwn"),
-              z.object({
-                label: z.string().optional().describe("Shown in bold, e.g. \"Jira\""),
-                value: z.string().describe("e.g. \"VEC-123\""),
-                url: z.string().url().optional().describe("Makes the value a link"),
-              }),
-            ]),
-          )
-          .max(20)
-          .optional()
-          .describe(
-            "Small grey details shown under a divider at the bottom of the message, joined with ·. Example: [{label:\"Jira\", value:\"VEC-123\", url:\"https://…\"}, {label:\"Comment\", value:\"#4521\", url:\"https://…\"}]",
-          ),
-        blocks: z
-          .array(z.record(z.string(), z.unknown()))
-          .min(1)
-          .max(50)
-          .optional()
-          .describe(
-            "Custom Slack Block Kit blocks (https://docs.slack.dev/reference/block-kit/blocks), e.g. header, section with fields, image, markdown, context, divider. Replaces the rendered `text`; `context` is still appended. Do not use interactive elements (buttons, menus): this server does not handle clicks.",
-          ),
+        context: ContextSchema,
+        blocks: BlocksSchema,
         expect_reply: z
           .boolean()
           .default(false)
@@ -154,6 +158,47 @@ export function registerMessageTools(server: McpServer, rt: SlackRuntime): void 
             ? "Saved as a pending question. For a quick answer, call wait_for_reply once. Otherwise end your turn; later, call check_replies (no arguments) to collect the answer."
             : undefined,
         };
+      }),
+  );
+
+  server.registerTool(
+    "edit_message",
+    {
+      title: "Edit a Slack message",
+      description:
+        "Replace the content of a message the bot posted, identified by channel and ts (as returned by send_message). Slack only lets a bot edit its own messages. The new `text`, `context` and `blocks` fully replace the old content, so resend any context you want to keep.",
+      inputSchema: z.object({
+        channel: z.string().min(1).describe("Channel ID, #channel-name, or user (ID, @handle, email) for a DM"),
+        ts: z.string().min(1).describe("Timestamp of the bot's message to edit"),
+        text: z
+          .string()
+          .min(1)
+          .describe("New message content. When `blocks` is set, this is only the notification/fallback text"),
+        format: z
+          .enum(["markdown", "plain"])
+          .default("markdown")
+          .describe("markdown: standard Markdown rendered by Slack. plain: sent as-is"),
+        context: ContextSchema,
+        blocks: BlocksSchema,
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
+    },
+    ({ channel, ts, text, format, context, blocks }) =>
+      run(`edit the message ${ts} in ${channel}`, async () => {
+        await rt.ready;
+        const conv = await rt.directory.resolveConversation(channel);
+        await assertAllowed(rt, conv, channel);
+        const res = await rt.adapter.webClient.chat.update({
+          channel: conv.channelId,
+          ts,
+          text,
+          blocks: buildBlocks({ text, format, blocks, context, always: true }) as never,
+        });
+        const permalink = await rt.adapter.webClient.chat
+          .getPermalink({ channel: conv.channelId, message_ts: ts })
+          .then((r) => r.permalink)
+          .catch(() => undefined);
+        return { ok: true, channel_id: res.channel ?? conv.channelId, ts: res.ts ?? ts, permalink };
       }),
   );
 
