@@ -159,3 +159,14 @@ pnpm typecheck
 pnpm build
 npx @modelcontextprotocol/inspector node dist/index.js   # try the tools interactively
 ```
+
+## Releasing
+
+Pushing a `v*` tag publishes to npm through GitHub Actions (`.github/workflows/publish.yml`). The workflow authenticates with [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers), so the repository stores no npm token.
+
+```bash
+npm version patch        # or minor / major: bumps package.json, commits, and tags
+git push --follow-tags   # the tag triggers the publish workflow
+```
+
+The workflow fails if the tag does not match the `package.json` version.
