@@ -109,7 +109,7 @@ You can drop scopes you do not need. Tools that lack a scope return an error tha
 | `users_search` | Find members by email, name, display name or @handle | `users:read`, `users:read.email` |
 | `user_info` | Profile of one user (ID, email or @handle) | `users:read` |
 | `channels_list` | List channels, filtered by type, name or membership | `channels:read`, `groups:read`, `im:read`, `mpim:read` |
-| `send_message` | Post to a channel, a thread, or a user's DM (Markdown or plain text). `expect_reply: true` saves the message as a pending question | `chat:write`, `im:write` |
+| `send_message` | Post to a channel, a thread, or a user's DM: Markdown or plain text, an optional context line, or custom Block Kit. `expect_reply: true` saves the message as a pending question | `chat:write`, `im:write` |
 | `delete_message` | Delete a message the bot posted (bots cannot delete other people's messages) | `chat:write` |
 | `conversations_history` | Read recent messages in a channel or DM | `channels:history`, `groups:history`, `im:history`, `mpim:history` |
 | `conversations_replies` | Read a thread | same as above |
@@ -126,6 +126,27 @@ Wherever a tool takes a channel or user, you can pass:
 For a user, the tool opens a DM with them. If a name matches several users, the tool returns the candidates so the agent can ask which one you mean.
 
 Bot tokens cannot call Slack's `search.messages` API, so this server has no message search.
+
+### Message formatting
+
+`send_message` has three levels of formatting:
+
+- **`text`** alone: standard Markdown (bold, lists, code, links, quotes), or plain text with `format: "plain"`.
+- **`context`**: small grey details under a divider at the bottom of the message, such as the Jira ticket or comment a question refers to. Each item is `{ label, value, url? }` or a pre-formatted mrkdwn string:
+
+  ```json
+  {
+    "target": "quy@example.com",
+    "text": "Does `VECURA_CONTENT_BACKEND_URL` have a public staging address?",
+    "context": [
+      { "label": "Jira", "value": "VEC-123", "url": "https://example.atlassian.net/browse/VEC-123" },
+      { "label": "Comment", "value": "#4521", "url": "https://example.atlassian.net/browse/VEC-123?focusedCommentId=4521" }
+    ]
+  }
+  ```
+
+  This renders as: the question, a divider, then **Jira:** VEC-123 · **Comment:** #4521 in small text.
+- **`blocks`**: any [Block Kit](https://docs.slack.dev/reference/block-kit/blocks) layout (header, section fields, images and so on). `text` then becomes the notification fallback, and `context` is still appended. Try layouts in the [Block Kit Builder](https://app.slack.com/block-kit-builder). Interactive elements such as buttons are not supported, because the server does not handle clicks. If Slack rejects the blocks, the error lists the invalid fields.
 
 ### Errors
 

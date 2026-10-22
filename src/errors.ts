@@ -42,6 +42,9 @@ const SLACK_ERRORS: Record<string, string> = {
   is_archived: "The channel is archived; nobody can post to it. Ask the user to unarchive it or choose another channel.",
   cant_dm_bot: "Cannot send a direct message to a bot user.",
   user_is_bot: "This action is not allowed on a bot user.",
+  invalid_blocks:
+    "The Block Kit payload is invalid. Fix the blocks listed below (see https://docs.slack.dev/reference/block-kit/blocks), or send without `blocks`.",
+  invalid_blocks_format: "`blocks` must be a JSON array of Block Kit block objects.",
   msg_too_long: "The message is too long. Split it into several shorter messages.",
   no_text: "The message is empty. Provide some text.",
   thread_not_found: "Thread not found. Check `thread_ts`; it must be the timestamp of an existing message in this channel.",
@@ -71,7 +74,7 @@ interface SlackLikeError {
   message?: string;
   retryAfter?: number;
   retryAfterMs?: number;
-  data?: { error?: string; needed?: string; provided?: string };
+  data?: { error?: string; needed?: string; provided?: string; response_metadata?: { messages?: string[] } };
   statusCode?: number;
 }
 
@@ -99,7 +102,9 @@ export function describeError(err: unknown, action: string): string {
   }
   if (slackCode) {
     const explanation = SLACK_ERRORS[slackCode] ?? "Slack rejected the request.";
-    return `Failed to ${action}: Slack API error \`${slackCode}\`.\n${explanation}`;
+    // Slack lists per-field problems here, e.g. "[ERROR] must be more than 0 characters [json-pointer:/blocks/0/text/text]".
+    const details = e.data?.response_metadata?.messages?.slice(0, 10).join("\n");
+    return `Failed to ${action}: Slack API error \`${slackCode}\`.\n${explanation}${details ? `\n${details}` : ""}`;
   }
   if (e.code === "slack_webapi_request_error") {
     return `Failed to ${action}: could not reach Slack (${e.message ?? "network error"}). Check network connectivity and retry.`;

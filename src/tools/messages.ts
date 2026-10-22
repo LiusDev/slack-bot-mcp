@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod";
 import { ToolError } from "../errors";
 import type { SlackRuntime } from "../slack/bot";
+import { buildBlocks } from "../slack/blocks";
 import type { ResolvedConversation } from "../slack/directory";
 import { run, toSlackTs, tsToIso } from "./util";
 
@@ -54,15 +55,42 @@ export function registerMessageTools(server: McpServer, rt: SlackRuntime): void 
     {
       title: "Send a Slack message",
       description:
-        "Post a message as the bot to a channel, a thread, or a user's DM. `target` accepts a channel ID (C…), #channel-name, user ID (U…), @handle, email, or a person's name; users get a direct message. Returns the message `ts`, which you can pass to wait_for_reply or use as `thread_ts` to reply in a thread.",
+        "Post a message as the bot to a channel, a thread, or a user's DM. `target` accepts a channel ID (C…), #channel-name, user ID (U…), @handle, email, or a person's name; users get a direct message. Use `context` to add small reference details under a divider at the bottom (Jira ticket, comment link, source, IDs). Use `blocks` only when you need a custom Block Kit layout (header, fields, images, etc.). Returns the message `ts`, which you can pass to wait_for_reply or use as `thread_ts` to reply in a thread.",
       inputSchema: z.object({
         target: z.string().min(1).describe("Channel ID, #channel-name, user ID, @handle, email, or name"),
-        text: z.string().min(1).describe("Message content"),
+        text: z
+          .string()
+          .min(1)
+          .describe("Message content. When `blocks` is set, this is only the notification/fallback text, so keep it a short summary"),
         format: z
           .enum(["markdown", "plain"])
           .default("markdown")
           .describe("markdown: standard Markdown rendered by Slack. plain: sent as-is"),
         thread_ts: z.string().optional().describe("Timestamp of the parent message, to reply inside that thread"),
+        context: z
+          .array(
+            z.union([
+              z.string().describe("Pre-formatted Slack mrkdwn"),
+              z.object({
+                label: z.string().optional().describe("Shown in bold, e.g. \"Jira\""),
+                value: z.string().describe("e.g. \"VEC-123\""),
+                url: z.string().url().optional().describe("Makes the value a link"),
+              }),
+            ]),
+          )
+          .max(20)
+          .optional()
+          .describe(
+            "Small grey details shown under a divider at the bottom of the message, joined with ·. Example: [{label:\"Jira\", value:\"VEC-123\", url:\"https://…\"}, {label:\"Comment\", value:\"#4521\", url:\"https://…\"}]",
+          ),
+        blocks: z
+          .array(z.record(z.string(), z.unknown()))
+          .min(1)
+          .max(50)
+          .optional()
+          .describe(
+            "Custom Slack Block Kit blocks (https://docs.slack.dev/reference/block-kit/blocks), e.g. header, section with fields, image, markdown, context, divider. Replaces the rendered `text`; `context` is still appended. Do not use interactive elements (buttons, menus): this server does not handle clicks.",
+          ),
         expect_reply: z
           .boolean()
           .default(false)
@@ -72,16 +100,30 @@ export function registerMessageTools(server: McpServer, rt: SlackRuntime): void 
       }),
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     },
-    ({ target, text, format, thread_ts, expect_reply }) =>
+    ({ target, text, format, thread_ts, context, blocks, expect_reply }) =>
       run(`send a Slack message to ${target}`, async () => {
         const id = await rt.ready;
         const conv = await rt.directory.resolveConversation(target);
         await assertAllowed(rt, conv, target);
 
-        const postable = thread_ts
-          ? rt.bot.thread(`slack:${conv.channelId}:${thread_ts}`)
-          : rt.bot.channel(`slack:${conv.channelId}`);
-        const sent = await postable.post(format === "markdown" ? { markdown: text } : text);
+        const payloadBlocks = buildBlocks({ text, format, blocks, context });
+        let sent: { id: string };
+        if (payloadBlocks) {
+          // Chat SDK has no raw Block Kit message type, so post through the Web API.
+          const res = await rt.adapter.webClient.chat.postMessage({
+            channel: conv.channelId,
+            thread_ts,
+            text,
+            blocks: payloadBlocks as never,
+          });
+          if (!res.ts) throw new ToolError("Slack accepted the message but returned no timestamp.");
+          sent = { id: res.ts };
+        } else {
+          const postable = thread_ts
+            ? rt.bot.thread(`slack:${conv.channelId}:${thread_ts}`)
+            : rt.bot.channel(`slack:${conv.channelId}`);
+          sent = await postable.post(format === "markdown" ? { markdown: text } : text);
+        }
 
         const permalink = await rt.adapter.webClient.chat
           .getPermalink({ channel: conv.channelId, message_ts: sent.id })

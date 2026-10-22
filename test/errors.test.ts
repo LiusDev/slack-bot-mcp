@@ -55,3 +55,18 @@ describe("delete errors", () => {
     expect(describeError(err, "delete the message")).toContain("only delete messages it posted itself");
   });
 });
+
+describe("invalid_blocks", () => {
+  it("includes Slack's per-field messages", () => {
+    const err = Object.assign(new Error("invalid_blocks"), {
+      code: "slack_webapi_platform_error",
+      data: {
+        error: "invalid_blocks",
+        response_metadata: { messages: ["[ERROR] must be more than 0 characters [json-pointer:/blocks/0/text/text]"] },
+      },
+    });
+    const text = describeError(err, "send a message");
+    expect(text).toContain("Block Kit payload is invalid");
+    expect(text).toContain("json-pointer:/blocks/0/text/text");
+  });
+});
