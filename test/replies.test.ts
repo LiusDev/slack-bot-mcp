@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { selectReplies } from "../src/slack/replies";
+import { fetchRepliesSince, selectReplies } from "../src/slack/replies";
 
 describe("selectReplies", () => {
   const since = "100.0";
@@ -41,5 +41,33 @@ describe("selectReplies", () => {
       { sinceTs: since, fromUserId: "U2" },
     );
     expect(result.map((m) => m.user)).toEqual(["U2"]);
+  });
+});
+
+describe("fetchRepliesSince", () => {
+  const message = (ts: string, user = "U1") => ({ ts, user, text: ts });
+  const client = (history: unknown[], thread: unknown[]) => {
+    const calls = { history: 0, replies: [] as string[] };
+    const c = {
+      conversations: {
+        history: async () => ((calls.history += 1), { messages: history }),
+        replies: async ({ ts }: { ts: string }) => (calls.replies.push(ts), { messages: thread }),
+      },
+    };
+    return { c: c as never, calls };
+  };
+
+  it("with thread_ts, returns thread replies and new top-level messages", async () => {
+    const { c, calls } = client([message("105.0")], [message("101.0"), message("105.0")]);
+    const result = await fetchRepliesSince(c, "D1", { sinceTs: "100.0", threadTs: "90.0", botUserId: "BOT" });
+    expect(result.map((m) => m.ts)).toEqual(["101.0", "105.0"]);
+    expect(calls.history).toBe(1);
+    expect(calls.replies).toEqual(["90.0"]);
+  });
+
+  it("without thread_ts, reads the thread of the since_ts message", async () => {
+    const { c, calls } = client([], [message("101.0")]);
+    await fetchRepliesSince(c, "C1", { sinceTs: "100.0" });
+    expect(calls.replies).toEqual(["100.0"]);
   });
 });

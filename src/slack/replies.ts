@@ -31,9 +31,9 @@ export function selectReplies(messages: RawSlackMessage[], filter: ReplyFilter):
 }
 
 /**
- * Fetch replies posted after `sinceTs`. With `threadTs`, only that thread is
- * read. Otherwise both new top-level messages and replies in the thread
- * started by the `sinceTs` message are read, because people answer either way.
+ * Fetch replies posted after `sinceTs`. Both new top-level messages and
+ * replies in the thread are read, because people answer either way. The
+ * thread is the one at `threadTs`, or the one started by the `sinceTs` message.
  */
 export async function fetchRepliesSince(
   client: WebClient,
@@ -41,15 +41,11 @@ export async function fetchRepliesSince(
   filter: ReplyFilter & { threadTs?: string },
 ): Promise<RawSlackMessage[]> {
   const { sinceTs, threadTs } = filter;
-  if (threadTs) {
-    const res = await client.conversations.replies({ channel: channelId, ts: threadTs, oldest: sinceTs, limit: 200 });
-    return selectReplies((res.messages ?? []) as RawSlackMessage[], filter);
-  }
   const [history, thread] = await Promise.all([
     client.conversations.history({ channel: channelId, oldest: sinceTs, limit: 200 }),
     // `sinceTs` may not be a message (e.g. "now"); Slack then answers thread_not_found.
     client.conversations
-      .replies({ channel: channelId, ts: sinceTs, oldest: sinceTs, limit: 200 })
+      .replies({ channel: channelId, ts: threadTs ?? sinceTs, oldest: sinceTs, limit: 200 })
       .catch((err: { data?: { error?: string } }) => {
         if (err.data?.error === "thread_not_found" || err.data?.error === "message_not_found") return { messages: [] };
         throw err;

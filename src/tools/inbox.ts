@@ -51,7 +51,7 @@ export function registerInboxTools(server: McpServer, rt: SlackRuntime): void {
       inputSchema: z.object({
         channel: z.string().min(1).describe("Channel ID, #channel-name, or user (ID, @handle, email) for their DM"),
         since_ts: z.string().optional().describe("ts of your question; only later messages count (default: now)"),
-        thread_ts: z.string().optional().describe("Only look inside this thread"),
+        thread_ts: z.string().optional().describe("Thread to check; new top-level messages in the channel are checked too"),
         from_user: z.string().optional().describe("Only count messages from this user (ID, @handle, or email)"),
         timeout_seconds: z
           .number()
@@ -132,7 +132,7 @@ export function registerInboxTools(server: McpServer, rt: SlackRuntime): void {
           .optional()
           .describe("Check only this conversation (ID, #name, or user). Requires since_ts. Omit to check all pending questions."),
         since_ts: z.string().optional().describe("With channel: only messages after this ts"),
-        thread_ts: z.string().optional().describe("With channel: only look inside this thread"),
+        thread_ts: z.string().optional().describe("With channel: thread to check; new top-level messages in the channel are checked too"),
         dismiss: z
           .array(z.string())
           .default([])
