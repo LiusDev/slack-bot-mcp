@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyTarget } from "../src/slack/directory";
+import { classifyTarget, SlackDirectory, type SlackUser } from "../src/slack/directory";
 
 describe("classifyTarget", () => {
   it.each([
@@ -14,5 +14,32 @@ describe("classifyTarget", () => {
     ["Jane Doe", { type: "name", value: "jane doe" }],
   ])("classifies %s", (input, expected) => {
     expect(classifyTarget(input)).toEqual(expected);
+  });
+});
+
+describe("searchUsers", () => {
+  const user = (id: string, real_name: string, title?: string): SlackUser => ({
+    id,
+    handle: real_name.toLowerCase().replace(/\s/g, "."),
+    real_name,
+    display_name: real_name,
+    title,
+    is_bot: false,
+    deleted: false,
+  });
+  const directory = new SlackDirectory(() => ({}) as never);
+  directory.listUsers = async () => [
+    user("U1", "Alice Smith", "Backend Engineer"),
+    user("U2", "Engineer Bob", "Designer"),
+  ];
+
+  it("ignores titles by default", async () => {
+    const found = await directory.searchUsers("backend");
+    expect(found).toEqual([]);
+  });
+
+  it("matches titles with includeTitle, ranked below name matches", async () => {
+    const found = await directory.searchUsers("engineer", { includeTitle: true });
+    expect(found.map((u) => u.id)).toEqual(["U2", "U1"]);
   });
 });

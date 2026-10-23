@@ -12,9 +12,9 @@ export function registerUserTools(server: McpServer, rt: SlackRuntime): void {
     {
       title: "Search Slack users",
       description:
-        "Find workspace members by email, real name, display name or @handle. Returns user IDs to use with send_message and other tools. Exact matches come first.",
+        "Find workspace members by email, real name, display name, @handle or job title. Returns user IDs to use with send_message and other tools. Exact matches come first.",
       inputSchema: z.object({
-        query: z.string().min(1).describe("Email address, full or partial name, display name, or @handle"),
+        query: z.string().min(1).describe("Email address, full or partial name, display name, @handle, or job title"),
         limit: z.number().int().min(1).max(100).default(10).describe("Maximum number of users to return"),
         include_bots: z.boolean().default(false).describe("Include bot users in the results"),
       }),
@@ -32,7 +32,7 @@ export function registerUserTools(server: McpServer, rt: SlackRuntime): void {
           return { users: [user] };
         }
         requireScopes(id, ["users:read"], "list workspace members");
-        const users = await rt.directory.searchUsers(query, { includeBots: include_bots });
+        const users = await rt.directory.searchUsers(query, { includeBots: include_bots, includeTitle: true });
         if (users.length === 0) {
           return { users: [], note: `No user matches "${query}". Try a shorter part of the name, or the email.` };
         }

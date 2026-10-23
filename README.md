@@ -106,7 +106,7 @@ You can drop scopes you do not need. Tools that lack a scope return an error tha
 | Tool | What it does | Bot scopes |
 |---|---|---|
 | `whoami` | Bot identity, connection status, granted scopes, and the scopes each tool is missing | none |
-| `users_search` | Find members by email, name, display name or @handle | `users:read`, `users:read.email` |
+| `users_search` | Find members by email, name, display name, @handle or job title | `users:read`, `users:read.email` |
 | `user_info` | Profile of one user (ID, email or @handle) | `users:read` |
 | `channels_list` | List channels, filtered by type, name or membership | `channels:read`, `groups:read`, `im:read`, `mpim:read` |
 | `send_message` | Post to a channel, a thread, or a user's DM: Markdown or plain text, an optional context line, or custom Block Kit. `expect_reply: true` saves the message as a pending question | `chat:write`, `im:write` |

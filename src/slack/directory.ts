@@ -109,8 +109,14 @@ export class SlackDirectory {
     }
   }
 
-  /** Search users by name, handle, display name or email; best matches first. */
-  async searchUsers(query: string, opts: { includeBots?: boolean; includeDeleted?: boolean } = {}): Promise<SlackUser[]> {
+  /**
+   * Search users by name, handle, display name or email; best matches first.
+   * With `includeTitle`, a job title containing the query also matches, ranked below any name match.
+   */
+  async searchUsers(
+    query: string,
+    opts: { includeBots?: boolean; includeDeleted?: boolean; includeTitle?: boolean } = {},
+  ): Promise<SlackUser[]> {
     const q = query.trim().replace(/^@/, "").toLowerCase();
     const scored: Array<{ user: SlackUser; score: number }> = [];
     for (const user of await this.listUsers()) {
@@ -121,6 +127,7 @@ export class SlackDirectory {
       if (fields.some((f) => f === q)) score = 3;
       else if (fields.some((f) => f.startsWith(q) || f.split(/[\s._-]+/).some((w) => w.startsWith(q)))) score = 2;
       else if (fields.some((f) => f.includes(q))) score = 1;
+      if (score === 0 && opts.includeTitle && user.title?.toLowerCase().includes(q)) score = 0.5;
       if (score > 0) scored.push({ user, score });
     }
     return scored.sort((a, b) => b.score - a.score).map((s) => s.user);
